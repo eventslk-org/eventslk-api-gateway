@@ -22,19 +22,23 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Gateway-level JWT validation filter.
  *
- * Runs on every inbound request before it is proxied to a downstream service.
- * Public paths (configured in application.yaml) are allowed through without a token.
+ * Note: the reactive Spring Cloud Gateway uses {@code AbstractGatewayFilterFactory},
+ * but this project uses the servlet/MVC variant (spring-cloud-starter-gateway-server-webmvc),
+ * so the filter is registered as a {@link OncePerRequestFilter} (the servlet equivalent).
  *
- * On a valid token the filter injects two trusted headers that downstream services
- * can read instead of re-validating the token themselves:
- *   X-User-Email  — the JWT subject (user's email)
- *   X-User-Role   — the "role" claim (e.g. USER, ADMIN)
- *
- * On an invalid/expired token the filter short-circuits with HTTP 401.
+ * Behaviour:
+ *   - Public paths (login/register/verify/actuator) are bypassed.
+ *   - All other requests must carry a valid {@code Authorization: Bearer <jwt>} header.
+ *   - On success the JWT's {@code sub} and {@code roles} claims are forwarded to the
+ *     downstream service as {@code X-User-Name} and {@code X-User-Roles}.
+ *   - On failure the request is short-circuited with HTTP 401.
  */
 @Slf4j
 @Component
@@ -59,13 +63,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // ── 1. Allow public paths through without any token ───────────────────
         if (isPublicPath(path)) {
             chain.doFilter(request, response);
             return;
         }
 
-        // ── 2. Require Authorization: Bearer <token> header ───────────────────
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             sendUnauthorized(response, "Missing or malformed Authorization header");
@@ -74,7 +76,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
 
-        // ── 3. Validate the token ─────────────────────────────────────────────
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(secretKey)
@@ -82,14 +83,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .parseSignedClaims(token)
                     .getPayload();
 
-            // ── 4. Inject trusted user identity headers for downstream services ─
-            MutableHttpServletRequest mutable = new MutableHttpServletRequest(request);
-            mutable.addHeader("X-User-Email", claims.getSubject());
-            mutable.addHeader("X-User-Role",  claims.get("role", String.class));
+            String username = claims.getSubject();
+            String roles = extractRoles(claims);
 
-            log.debug("JWT valid — forwarding {} {} as user={} role={}",
-                    request.getMethod(), path,
-                    claims.getSubject(), claims.get("role"));
+            MutableHttpServletRequest mutable = new MutableHttpServletRequest(request);
+            mutable.addHeader("X-User-Name",  username);
+            mutable.addHeader("X-User-Roles", roles);
+
+            log.debug("JWT valid — forwarding {} {} as user={} roles={}",
+                    request.getMethod(), path, username, roles);
 
             chain.doFilter(mutable, response);
 
@@ -100,6 +102,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             log.warn("Invalid JWT for path {}: {}", path, e.getMessage());
             sendUnauthorized(response, "Invalid token");
         }
+    }
+
+    /**
+     * Roles may be issued as a single string ("ADMIN"), a comma-separated string
+     * ("ADMIN,USER"), or a JSON array (["ADMIN","USER"]). Normalise to a
+     * comma-separated string so downstream services can split on ','.
+     */
+    @SuppressWarnings("unchecked")
+    private String extractRoles(Claims claims) {
+        Object raw = claims.get("roles");
+        if (raw == null) {
+            raw = claims.get("role");
+        }
+        if (raw == null) {
+            return "";
+        }
+        if (raw instanceof Collection<?> collection) {
+            return ((Collection<Object>) collection).stream()
+                    .map(Object::toString)
+                    .collect(Collectors.joining(","));
+        }
+        return raw.toString();
     }
 
     private boolean isPublicPath(String path) {
@@ -114,5 +138,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"" + message + "\"}"
         );
     }
-
 }

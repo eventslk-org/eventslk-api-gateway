@@ -50,12 +50,15 @@ public class GatewayProperties {
     public static class Gateway {
         /**
          * Ant-style path patterns that bypass JWT validation.
-         * Default covers signup, login and actuator probes.
+         * Default covers login/register and actuator probes.
          */
         @NotNull
         private List<String> publicPaths = List.of(
-                // "/auth/signup",
-                "/auth/*",
+                "/api/v1/auth/login",
+                "/api/v1/auth/register",
+                "/api/v1/auth/signup",
+                "/api/v1/auth/verify-email",
+                "/api/v1/auth/resend-verification",
                 "/actuator/**"
         );
     }

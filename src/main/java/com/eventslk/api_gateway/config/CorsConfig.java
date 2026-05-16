@@ -34,7 +34,7 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedMethods(ALLOWED_METHODS)
                 .allowedHeaders("*")
                 // exposedHeaders lets the browser read custom response headers
-                .exposedHeaders("Authorization", "X-User-Email", "X-User-Role")
+                .exposedHeaders("Authorization", "X-User-Name", "X-User-Roles")
                 .maxAge(3600);        // preflight cache duration in seconds
     }
 }
