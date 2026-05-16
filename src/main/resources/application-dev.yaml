@@ -1,0 +1,23 @@
+# ── Dev profile ─────────────────────────────────────────────────────────────
+# Runs entirely on localhost. No auth required for the Eureka dashboard.
+# All actuator endpoints are open for easy debugging.
+
+management:
+  endpoint:
+    health:
+      show-details: always          # Detailed health output is fine locally
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus, env, httptrace
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.eventslk: DEBUG
+
+app:
+  jwt:
+    # Dev-only placeholder secret — must match the JWT_SECRET used by event-registration-api locally.
+    # In production this is always overridden by the JWT_SECRET environment variable.
+    secret: ${JWT_SECRET:9070a07001f03abb91a1c1171d1454a53e3ebf8ef9062a7b7f9df21dd70f45a0}

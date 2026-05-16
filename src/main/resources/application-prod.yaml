@@ -1,0 +1,22 @@
+# ── Prod profile ─────────────────────────────────────────────────────────────
+# All sensitive actuator endpoints are locked down.
+# Eureka URL must be provided via EUREKA_DEFAULT_ZONE env var.
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE}   # Required in prod — no default
+
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus         # Only expose what monitoring stack needs
+
+logging:
+  level:
+    root: WARN
+    com.eventslk: INFO
