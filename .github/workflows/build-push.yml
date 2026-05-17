@@ -1,0 +1,53 @@
+name: Build and Push API Gateway
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t kaveengayanga12/eventslk-api-gateway:${{ github.sha }} \
+            -t kaveengayanga12/eventslk-api-gateway:latest \
+            .
+
+      - name: Push Docker image (SHA tag)
+        run: docker push kaveengayanga12/eventslk-api-gateway:${{ github.sha }}
+
+      - name: Push Docker image (latest tag)
+        run: docker push kaveengayanga12/eventslk-api-gateway:latest
+
+      - name: Update Kubernetes manifests (GitOps)
+        run: |
+          rm -rf eventslk-k8s-manifests
+          git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/eventslk-org/eventslk-k8s-manifests.git
+          cd eventslk-k8s-manifests
+
+          sed -i "s|image: kaveengayanga12/eventslk-api-gateway:.*|image: kaveengayanga12/eventslk-api-gateway:${{ github.sha }}|g" gateway-deployment.yaml
+
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          git add gateway-deployment.yaml
+          git commit -m "ci: update api-gateway image to ${{ github.sha }}" || echo "No changes to commit"
+
+          git pull --rebase origin main
+          git push origin main
