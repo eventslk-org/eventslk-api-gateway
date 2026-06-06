@@ -20,4 +20,4 @@ app:
   jwt:
     # Dev-only placeholder secret — must match the JWT_SECRET used by event-registration-api locally.
     # In production this is always overridden by the JWT_SECRET environment variable.
-    secret: ${JWT_SECRET:9070a07001f03abb91a1c1171d1454a53e3ebf8ef9062a7b7f9df21dd70f45a0}
+    secret: ${JWT_SECRET}

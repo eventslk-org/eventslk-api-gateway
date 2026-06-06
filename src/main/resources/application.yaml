@@ -59,8 +59,8 @@ management:
 
 # ── JWT & public-path config consumed by JwtAuthenticationFilter ──────────────
 app:
-  jwt:
-    secret: ${JWT_SECRET}               # Must be supplied via env / .env file
+  # jwt:
+  # secret: ${JWT_SECRET}               # Must be supplied via env / .env file
   gateway:
     # Requests matching these Ant patterns bypass JWT validation entirely.
     public-paths:
