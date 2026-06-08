@@ -1,0 +1,30 @@
+# Build output — the builder stage compiles from source
+target/
+
+# Version control — never ship .git history into the build context
+.git/
+.gitignore
+
+# CI / container metadata not needed for the image build
+.github/
+Dockerfile
+.dockerignore
+
+# Maven wrapper is unused (build runs inside the pinned maven image)
+mvnw
+mvnw.cmd
+.mvn/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Local env / secrets — never bake into the image
+.env
+*.env
+
+# Logs and docs
+*.log
+HELP.md
